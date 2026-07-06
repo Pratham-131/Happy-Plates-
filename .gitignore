@@ -1,0 +1,17 @@
+# Java / Maven
+foodiesapi/target/
+*.class
+
+# Node
+foodies/node_modules/
+foodies/dist/
+
+# Env / secrets
+.env
+*.env
+application-local.properties
+
+# IDE
+.vscode/
+.idea/
+*.iml
