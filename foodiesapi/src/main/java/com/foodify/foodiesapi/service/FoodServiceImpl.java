@@ -5,6 +5,8 @@ import com.foodify.foodiesapi.io.FoodRequest;
 import com.foodify.foodiesapi.io.FoodResponse;
 import com.foodify.foodiesapi.repository.FoodRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -37,6 +39,15 @@ public class FoodServiceImpl implements FoodService {
     @Value("${app.stub.storage:false}")
     private boolean stubStorage;
 
+    @Value("${app.storage.type:local}")
+    private String storageType;
+
+    @Value("${app.upload.dir:/app/uploads}")
+    private String uploadDir;
+
+    @Value("${app.base.url:http://localhost:8081}")
+    private String baseUrl;
+
     @Override
     public String uploadFile(MultipartFile file) {
         String filenameExtension=file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf(".")+1);
@@ -44,6 +55,18 @@ public class FoodServiceImpl implements FoodService {
 
         if (stubStorage) {
             return "https://stub-bucket.local/"+key;
+        }
+
+        if ("local".equalsIgnoreCase(storageType)) {
+            try {
+                java.io.File dir = new java.io.File(uploadDir);
+                if (!dir.exists()) dir.mkdirs();
+                java.io.File dest = new java.io.File(dir, key);
+                file.transferTo(dest);
+                return baseUrl + "/uploads/" + key;
+            } catch (IOException e) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "file upload failed");
+            }
         }
 
         try{
@@ -72,6 +95,7 @@ public class FoodServiceImpl implements FoodService {
     }
 
     @Override
+    @CacheEvict(value = "foods", allEntries = true)
     public FoodResponse addFood(FoodRequest request, MultipartFile file) {
         FoodEntity newFoodEntity = convertToEntity(request);
         String imageUrl = uploadFile(file);
@@ -82,12 +106,35 @@ public class FoodServiceImpl implements FoodService {
     }
 
     @Override
+    @CacheEvict(value = {"foods", "food"}, allEntries = true)
+    public FoodResponse updateFood(String id, FoodRequest request, MultipartFile file) {
+        FoodEntity existingFood = foodRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Food not found for the id:" + id));
+
+        existingFood.setName(request.getName());
+        existingFood.setDescription(request.getDescription());
+        existingFood.setCategory(request.getCategory());
+        existingFood.setPrice(request.getPrice());
+        existingFood.setRating(request.getRating());
+
+        if (file != null && !file.isEmpty()) {
+            String imageUrl = uploadFile(file);
+            existingFood.setImageUrl(imageUrl);
+        }
+
+        existingFood = foodRepository.save(existingFood);
+        return convertToResponse(existingFood);
+    }
+
+    @Override
+    @Cacheable(value = "foods")
     public List<FoodResponse> readFoods() {
         List<FoodEntity> databaseEntries = foodRepository.findAll();
         return databaseEntries.stream().map(object -> convertToResponse(object)).collect(Collectors.toList());
     }
 
     @Override
+    @Cacheable(value = "food", key = "#id")
     public FoodResponse readFood(String id) {
         FoodEntity existingFood = foodRepository.findById(id).orElseThrow(() -> new RuntimeException("Food not found for the id:"+id));
         return convertToResponse(existingFood);
@@ -98,6 +145,13 @@ public class FoodServiceImpl implements FoodService {
         if (stubStorage) {
             return true;
         }
+
+        if ("local".equalsIgnoreCase(storageType)) {
+            java.io.File f = new java.io.File(uploadDir, filename);
+            if (f.exists()) f.delete();
+            return true;
+        }
+
         DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
                 .bucket(bucketName)
                 .key(filename)
@@ -107,6 +161,7 @@ public class FoodServiceImpl implements FoodService {
     }
 
     @Override
+    @CacheEvict(value = {"foods", "food"}, allEntries = true)
     public void deleteFood(String id) {
         FoodResponse response = readFood(id);
         String imageUrl = response.getImageUrl();
@@ -123,6 +178,7 @@ public class FoodServiceImpl implements FoodService {
                 .description(request.getDescription())
                 .category(request.getCategory())
                 .price(request.getPrice())
+                .rating(request.getRating())
                 .build();
 
     }
@@ -135,6 +191,7 @@ public class FoodServiceImpl implements FoodService {
                 .category(entity.getCategory())
                 .price(entity.getPrice())
                 .imageUrl(entity.getImageUrl())
+                .rating(entity.getRating())
                 .build();
     }
 }

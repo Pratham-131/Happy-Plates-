@@ -19,6 +19,10 @@ const Register = () => {
       setData((data) => ({ ...data, [name]: value }));
     };
 
+    const onResetHandler = () => {
+      setData({ name: "", email: "", password: "" });
+    };
+
   const onSubmitHandler = async (event) => {
     event.preventDefault();
     try {
@@ -97,7 +101,8 @@ const Register = () => {
                   </button>
                   <button
                     className="btn btn-outline-danger btn-login text-uppercase mt-2"
-                    type="reset"
+                    type="button"
+                    onClick={onResetHandler}
                   >
                     Reset
                   </button>

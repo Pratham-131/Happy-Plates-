@@ -19,6 +19,10 @@ const Login = () => {
       const value = event.target.value;
       setData((data) => ({ ...data, [name]: value }));
     };
+
+    const onResetHandler = () => {
+      setData({ email: "", password: "" });
+    };
   
     const onSubmitHandler = async (event) => {
       event.preventDefault();
@@ -85,7 +89,8 @@ const Login = () => {
                   </button>
                   <button
                     className="btn btn-outline-danger btn-login text-uppercase mt-2"
-                    type="reset"
+                    type="button"
+                    onClick={onResetHandler}
                   >
                     Reset
                   </button>

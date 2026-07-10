@@ -52,3 +52,27 @@ export const deleteOrder = async (orderId, token) => {
         throw error;
     }
 }
+
+export const fetchAllOrders = async (token) => {
+    try {
+        const response = await axios.get(API_URL+"/all", {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error occured while fetching all orders', error);
+        throw error;
+    }
+}
+export const updateOrderStatus = async (orderId, status, token) => {
+    try {
+        await axios.patch(
+            API_URL+"/status/"+orderId+"?status="+status,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+    } catch (error) {
+        console.error('Error occured while updating order status', error);
+        throw error;
+    }
+}

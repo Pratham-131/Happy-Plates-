@@ -76,6 +76,13 @@ public OrderResponse createOrderWithPayment(OrderRequest request) {
     }
 
     @Override
+    public List<OrderResponse> getUserOrders() {
+        String userId = userService.findByUserId();
+        List<OrderEntity> list = orderRepository.findByUserId(userId);
+        return list.stream().map(entity -> convertToResponse(entity)).collect(Collectors.toList());
+    }
+
+    @Override
     public void updateOrderStatus(String orderId, String status) {
         OrderEntity entity = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
@@ -100,6 +107,7 @@ public OrderResponse createOrderWithPayment(OrderRequest request) {
 
     private OrderEntity convertToEntity(OrderRequest request) {
         return OrderEntity.builder()
+                .userId(userService.findByUserId())
                 .userAddress(request.getUserAddress())
                 .amount(request.getAmount())
                 .orderedItems(request.getOrderedItems())

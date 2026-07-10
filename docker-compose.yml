@@ -1,0 +1,43 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: happyplates-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    container_name: happyplates-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+  foodiesapi:
+    build:
+      context: ./foodiesapi
+    container_name: happyplates-backend
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/foodiesdb
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_HOST: redis
+    volumes:
+      - uploads-data:/app/uploads
+    depends_on:
+      - mongo
+      - redis
+    restart: unless-stopped
+  foodies:
+    build:
+      context: ./foodies
+    container_name: happyplates-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - foodiesapi
+    restart: unless-stopped
+volumes:
+  mongo-data:
+  uploads-data:

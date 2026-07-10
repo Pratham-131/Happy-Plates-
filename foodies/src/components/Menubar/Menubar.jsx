@@ -1,24 +1,28 @@
-import React, { useContext, useState } from "react";
+﻿import React, { useContext } from "react";
 import './Menubar.css'
-//import {assets} from "../../assets/assets";
 import { assets } from "../../assets/assets";
-import { Link,useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { StoreContext } from "../../context/StoreContext";
 const Menubar = () => {
-const [active, setActive] = useState("home");
-   const {quantities,token,setToken, setQuantities } =
+   const {quantities,token,setToken, setQuantities, role, setRole } =
       useContext(StoreContext);
     const uniqueItemsInCart = Object.values(quantities).filter(
       (qty) => qty > 0
     ).length;
 const navigate = useNavigate();
+const isAdmin = role === "ADMIN";
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("role");
     setToken("");
+    setRole("");
     setQuantities({});
     navigate("/");
   };
+
+  const navLinkClass = ({ isActive }) =>
+    isActive ? "nav-link fw-bold active" : "nav-link";
 
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-light">
@@ -30,23 +34,24 @@ const navigate = useNavigate();
     <div className="collapse navbar-collapse" id="navbarSupportedContent">
       <ul className="navbar-nav me-auto mb-2 mb-lg-0">
         <li className="nav-item">
-          <Link className={
-                  active === "home" ? "nav-link fw-bold active" : "nav-link"
-                }  to="/" onClick={() => setActive("home")}>Home</Link>
+          <NavLink className={navLinkClass} to="/" end>Home</NavLink>
         </li>
         <li className="nav-item">
-          <Link className={
-                  active === "explore" ? "nav-link fw-bold active" : "nav-link"
-                } to="/explore" onClick={() => setActive("explore")}>Explore</Link>
+          <NavLink className={navLinkClass} to="/explore">Explore</NavLink>
         </li>
-      
-          <li className="nav-item">
-          <Link className={active === "contact-us"
-                    ? "nav-link fw-bold active"
-                    : "nav-link"} to="/contact" onClick={() => setActive("contact-us")}>Contact us</Link>
+        <li className="nav-item">
+          <NavLink className={navLinkClass} to="/contact">Contact us</NavLink>
         </li>
-            
-        
+        {isAdmin && (
+          <>
+            <li className="nav-item">
+              <NavLink className={navLinkClass} to="/admin/foods">Manage Foods</NavLink>
+            </li>
+            <li className="nav-item">
+              <NavLink className={navLinkClass} to="/admin/orders">Manage Orders</NavLink>
+            </li>
+          </>
+        )}
       </ul>
      <div className="d-flex align-items-center gap-4">
       <Link to={`/cart`}>
@@ -57,45 +62,20 @@ const navigate = useNavigate();
         </Link>
             {!token ? (
                       <>
-                        <button
-                          className="btn btn-outline-primary btn-sm"
-                          onClick={() => navigate("/login")}
-                        >
-                          Login
-                        </button>
-                        <button
-                          className="btn btn-outline-success btn-sm"
-                          onClick={() => navigate("/register")}
-                        >
-                          Register
-                        </button>
+                        <button className="btn btn-outline-primary btn-sm" onClick={() => navigate("/login")}>Login</button>
+                        <button className="btn btn-outline-success btn-sm" onClick={() => navigate("/register")}>Register</button>
+                        <button className="btn btn-outline-dark btn-sm" onClick={() => navigate("/admin/login")}>Admin</button>
                       </>
                     ) : (
                       <div className="dropdown text-end">
-                        <a
-                          href="#"
-                          className="d-block link-body-emphasis text-decoration-none dropdown-toggle"
-                          data-bs-toggle="dropdown"
-                          aria-expanded="false"
-                        >
-                          <img
-                            src={assets.profile}
-                            alt=""
-                            width={32}
-                            height={32}
-                            className="rounded-circle"
-                          />
+                        <a href="#" className="d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                          <img src={assets.profile} alt="" width={32} height={32} className="rounded-circle"/>
                         </a>
                         <ul className="dropdown-menu text-small">
-                          <li
-                            className="dropdown-item"
-                            onClick={() => navigate("/myorders")}
-                          >
-                            Orders
-                          </li>
-                          <li className="dropdown-item" onClick={logout}>
-                            Logout
-                          </li>
+                          {!isAdmin && (
+                            <li className="dropdown-item" onClick={() => navigate("/myorders")}>Orders</li>
+                          )}
+                          <li className="dropdown-item" onClick={logout}>Logout</li>
                         </ul>
                       </div>
                     )}

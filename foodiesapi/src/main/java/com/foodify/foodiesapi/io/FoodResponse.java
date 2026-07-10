@@ -1,11 +1,8 @@
 package com.foodify.foodiesapi.io;
-
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -17,4 +14,5 @@ public class FoodResponse {
     public String imageUrl;
     private double price;
     private String category;
+    private double rating;
 }

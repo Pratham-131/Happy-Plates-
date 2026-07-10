@@ -1,9 +1,26 @@
 import React, { useContext } from "react";
 import { Link } from "react-router-dom";
 import { StoreContext } from "../../context/StoreContext";
-
-const FoodItem = ({ name, description, id, imageUrl, price }) => {
+const FoodItem = ({ name, description, id, imageUrl, price, rating }) => {
   const { increaseQty, decreaseQty, quantities } = useContext(StoreContext);
+
+  const renderStars = (rating) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating - fullStars >= 0.5;
+
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(<i key={`full-${i}`} className="bi bi-star-fill text-warning"></i>);
+    }
+    if (hasHalfStar) {
+      stars.push(<i key="half" className="bi bi-star-half text-warning"></i>);
+    }
+    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+    for (let i = 0; i < emptyStars; i++) {
+      stars.push(<i key={`empty-${i}`} className="bi bi-star text-warning"></i>);
+    }
+    return stars;
+  };
 
   return (
     <div className="col-12 col-sm-6 col-md-4 col-lg-3 mb-4 d-flex justify-content-center">
@@ -23,12 +40,8 @@ const FoodItem = ({ name, description, id, imageUrl, price }) => {
           <div className="d-flex justify-content-between align-items-center">
             <span className="h5 mb-0">&#8377;{price}</span>
             <div>
-              <i className="bi bi-star-fill text-warning"></i>
-              <i className="bi bi-star-fill text-warning"></i>
-              <i className="bi bi-star-fill text-warning"></i>
-              <i className="bi bi-star-fill text-warning"></i>
-              <i className="bi bi-star-half text-warning"></i>
-              <small className="text-muted">(4.5)</small>
+              {renderStars(rating || 0)}
+              <small className="text-muted">({(rating || 0).toFixed(1)})</small>
             </div>
           </div>
         </div>
@@ -67,5 +80,4 @@ const FoodItem = ({ name, description, id, imageUrl, price }) => {
     </div>
   );
 };
-
-export default FoodItem;
+export default FoodItem

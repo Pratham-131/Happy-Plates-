@@ -24,6 +24,11 @@ public class OrderController {
         return Map.of("verified", true);
     }
 
+    @GetMapping
+    public List<OrderResponse> getUserOrders() {
+        return orderService.getUserOrders();
+    }
+
     //admin panel
     @GetMapping("/all")
     public List<OrderResponse> getOrdersOfAllUsers() {

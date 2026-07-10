@@ -5,6 +5,7 @@ import { StoreContext } from "../../context/StoreContext";
 import { calculateCartTotals } from "../../util/cartUtils";
 import { useNavigate } from "react-router-dom";
 import { RAZORPAY_KEY } from "../../util/contants";
+import { getStates, getCities } from "../../util/indiaData";
 import { toast } from "react-toastify";
 import {
   createOrder,
@@ -33,6 +34,11 @@ const navigate = useNavigate();
     const name = event.target.name;
     const value = event.target.value;
     setData((data) => ({ ...data, [name]: value }));
+  };
+
+  const onStateChangeHandler = (event) => {
+    const value = event.target.value;
+    setData((data) => ({ ...data, state: value, city: "" }));
   };
 
   const onSubmitHandler = async (event) => {
@@ -296,10 +302,14 @@ const navigate = useNavigate();
                     required
                     name="state"
                     value={data.state}
-                    onChange={onChangeHandler}
+                    onChange={onStateChangeHandler}
                   >
                     <option value="">Choose...</option>
-                    <option>Karnataka</option>
+                    {getStates().map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -314,10 +324,14 @@ const navigate = useNavigate();
                     name="city"
                     value={data.city}
                     onChange={onChangeHandler}
-                
+                    disabled={!data.state}
                   >
                     <option value="">Choose...</option>
-                    <option>Banglore</option>
+                    {getCities(data.state).map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
