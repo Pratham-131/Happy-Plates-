@@ -1,5 +1,5 @@
 import axios from "axios";
-const API_URL = 'http://localhost:8081/api/foods';
+const API_URL = import.meta.env.VITE_API_URL + "/api";
 export const fetchFoodList = async () => {
     try {
         const response = await axios.get(API_URL);
