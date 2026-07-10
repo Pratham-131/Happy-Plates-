@@ -1,3 +1,5 @@
+![CI](https://github.com/Pratham-131/Happy-Plates-/actions/workflows/ci.yml/badge.svg)
+
 # Happy Plates — Full-Stack Food Ordering Platform
 
 A full-stack food ordering application — Spring Boot backend, React (Vite) frontend, MongoDB for data — covering the complete flow from browsing a menu to placing an order.
