@@ -87,7 +87,7 @@ Set to `false` once real Razorpay/AWS credentials are configured, to use live in
 - Full order flow (register → login → browse → cart → checkout → order tracking) verified end-to-end on the live deployment.
 - Admin flow (login, food CRUD, order management) verified end-to-end.
 - Real food images served from the backend as static assets.
-- 22 JUnit tests passing across service layer (User, Food, Order).
+- 23 JUnit tests passing — service layer (User, Food, Order) and controller layer (Order).
 - CI pipeline (GitHub Actions) builds and tests backend + frontend on every push.
 - Deployed: frontend (Vercel), backend (Render, Docker), database (MongoDB Atlas), cache (Redis on Render).
 - Payment and file upload remain local stubs — not yet connected to live Razorpay/AWS accounts.
@@ -97,7 +97,6 @@ Set to `false` once real Razorpay/AWS credentials are configured, to use live in
 - [ ] Real Razorpay webhook handling for order status updates.
 - [ ] Live S3/Cloudinary integration for admin-uploaded images (current uploads work locally but don't persist across redeploys on Render's free tier).
 - [ ] Circuit breaker / resilience patterns for external service calls.
-- [ ] Broader test coverage (controller layer, integration tests).
 
 ## License
 
