@@ -37,7 +37,7 @@ flowchart LR
     REPO --> DB[(MongoDB Atlas)]
     SVC --> CACHE[(Redis cache)]
     SVC --> PAY[Razorpay service<br/>stubbed by default]
-    SVC --> STORE[Storage service<br/>stub/local; S3 code path]
+    SVC --> STORE[Storage service<br/>stub/local, S3 code path]
 ```
 
 - **Frontend:** React pages and services send HTTP requests through Axios to the API.
@@ -141,10 +141,10 @@ sequenceDiagram
     Client->>API: POST /api/register (name, email, password)
     API->>Users: BCrypt-encode password and save user
     Client->>API: POST /api/login or /api/admin/login
-    API->>Auth: Authenticate credentials; check USER vs ADMIN route
+    API->>Auth: Authenticate credentials, check USER vs ADMIN route
     Auth-->>Client: JWT (HS256, 10-hour expiry) on success
     Client->>API: Protected request + Bearer token
-    API->>Filter: Extract subject; load account; validate JWT
+    API->>Filter: Extract subject, load account, validate JWT
     Filter-->>API: Set authenticated user and authorities
     API-->>Client: Continue if route permits that account
 ```
