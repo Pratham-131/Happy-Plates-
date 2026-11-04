@@ -19,6 +19,7 @@ public class CartEntity {
     @Id
     private String id;
     private String userId;
+    @Builder.Default
     private Map<String, Integer> items = new HashMap<>();
 
     public CartEntity(String userId, Map<String, Integer> items) {
@@ -26,4 +27,3 @@ public class CartEntity {
         this.items = items;
     }
 }
-
