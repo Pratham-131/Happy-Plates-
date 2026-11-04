@@ -1,11 +1,9 @@
 package com.foodify.foodiesapi.service;
 
 import com.foodify.foodiesapi.entity.UserEntity;
-import com.foodify.foodiesapi.enums.UserRole;
 import com.foodify.foodiesapi.io.UserRequest;
 import com.foodify.foodiesapi.io.UserResponse;
 import com.foodify.foodiesapi.repository.UserRepository;
-import com.foodify.foodiesapi.enums.UserRole;
 import lombok.AllArgsConstructor;
 
 import org.springframework.security.core.Authentication;
@@ -15,11 +13,10 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-public class UserServiceImpl implements UserService{
+public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-
 
     @Override
     public UserResponse registerUser(UserRequest request) {
@@ -40,20 +37,21 @@ public class UserServiceImpl implements UserService{
     }
 
     private UserEntity convertToEntity(UserRequest request) {
-    return UserEntity.builder()
-            .email(request.getEmail())
-            .password(passwordEncoder.encode(request.getPassword()))
-            .name(request.getName())
-            .role(request.getRole())
-            .build();
-}
+        return UserEntity.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .name(request.getName())
+                // Role is always assigned server-side; any client-supplied role is ignored.
+                .role("USER")
+                .build();
+    }
 
     private UserResponse convertToResponse(UserEntity registeredUser) {
-    return UserResponse.builder()
-            .id(registeredUser.getId())
-            .name(registeredUser.getName())
-            .email(registeredUser.getEmail())
-            .role(registeredUser.getRole())
-            .build();
-}
+        return UserResponse.builder()
+                .id(registeredUser.getId())
+                .name(registeredUser.getName())
+                .email(registeredUser.getEmail())
+                .role(registeredUser.getRole())
+                .build();
+    }
 }
