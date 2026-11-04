@@ -18,6 +18,7 @@ import java.util.List;
 public class FoodController {
     private final FoodService foodService;
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public FoodResponse addFood(@RequestPart("food") String foodString,
                                 @RequestPart("file")MultipartFile file) {
         ObjectMapper objectMapper = new ObjectMapper();
