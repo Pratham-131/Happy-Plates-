@@ -211,7 +211,7 @@ Examples below are placeholders, not credentials. Spring Boot maps environment o
 
 ## Testing
 
-There are 28 JUnit test methods across the backend test sources: 21 service-layer tests (10 `FoodServiceImplTest`, 10 `OrderServiceImplTest`, 1 `UserServiceImplTest`) and 7 controller-layer tests (`OrderControllerTest`). No repository, authentication-controller, or frontend test classes are present in the test tree.
+There are 26 JUnit test methods across the backend test sources: 20 service-layer tests (10 `FoodServiceImplTest`, 7 `OrderServiceImplTest`, 3 `UserServiceImplTest`) and 6 controller-layer tests (`OrderControllerTest`). `UserServiceImplTest` includes a regression test that registration ignores a client-supplied role. No repository, authentication-controller, or frontend test classes are present in the test tree.
 
 Run the backend tests from the repository root:
 
@@ -228,7 +228,7 @@ On Windows, use `.\mvnw.cmd test`. GitHub Actions also runs `mvn -B test` for th
 - CI builds the backend and runs its tests, then installs frontend dependencies and builds the Vite app.
 - The README's live links point to the Vercel frontend and Render backend; the backend may have a free-tier cold start.
 - Razorpay order creation is configurable; stub verification marks orders `PAID_STUB`, while live mode validates the payment signature. Webhook processing is not implemented. Storage defaults to local disk rather than durable cloud storage.
-- Docker Compose is a local stack with MongoDB and Redis containers; the deployed database/cache configuration is independent of Compose.
+- Docker Compose is a local stack with MongoDB and Redis containers; the deployed backend uses MongoDB Atlas and a Render Valkey (Redis-compatible) instance for caching, configured separately from Compose.
 
 ## Design Decisions
 
