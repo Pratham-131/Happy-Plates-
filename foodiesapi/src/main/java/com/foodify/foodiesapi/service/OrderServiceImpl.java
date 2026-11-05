@@ -155,7 +155,7 @@ public OrderResponse createOrderWithPayment(OrderRequest request) {
                 .orderedItems(orderedItems)
                 .email(request.getEmail())
                 .phoneNumber(request.getPhoneNumber())
-                .orderStatus(request.getOrderStatus())
+                .orderStatus("Preparing")
                 .build();
     }
 }
