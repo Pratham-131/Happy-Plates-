@@ -114,7 +114,7 @@ All paths are relative to the API host. Protected endpoints accept any authentic
 | GET | `/uploads/**` | Public | Serve uploaded files from the configured upload directory | 200 OK |
 | GET | `/api/foods` | Public | List foods | 200 OK |
 | GET | `/api/foods/{id}` | Public | Read one food item | 200 OK |
-| POST | `/api/foods` | ADMIN | Add a food item and image | 200 OK |
+| POST | `/api/foods` | ADMIN | Add a food item and image | 201 Created |
 | PUT | `/api/foods/{id}` | ADMIN | Update a food item and optional image | 200 OK |
 | DELETE | `/api/foods/{id}` | ADMIN | Delete a food item | 204 No Content |
 | POST | `/api/cart` | USER/ADMIN | Add one quantity of a food item to the current user's cart | 200 OK |
@@ -122,10 +122,17 @@ All paths are relative to the API host. Protected endpoints accept any authentic
 | DELETE | `/api/cart` | USER/ADMIN | Clear the current user's cart | 204 No Content |
 | POST | `/api/cart/remove` | USER/ADMIN | Remove one quantity of a food item | 200 OK |
 | POST | `/api/orders/create` | USER/ADMIN | Create an order and payment order | 200 OK |
-| POST | `/api/orders/verify` | USER/ADMIN | Stub verification or Razorpay signature validation, based on configuration | 200 OK |
+| POST | `/api/orders/verify` | USER/ADMIN (order owner) | Verify the payment signature or simulate payment in stub mode | 200 OK |
 | GET | `/api/orders` | USER/ADMIN | List the current user's orders | 200 OK |
 | GET | `/api/orders/all` | ADMIN | List all orders | 200 OK |
 | PATCH | `/api/orders/status/{orderId}?status={status}` | ADMIN | Update an order's status | 200 OK |
+
+## Security
+
+- Order totals are calculated server-side from food records in the database.
+- Registration always assigns the USER role and ignores any client-supplied role.
+- Payment signatures are verified server-side in real Razorpay mode. In stub mode (`app.stub.payment=true`), payment is simulated and `/verify` is not called by the frontend.
+- Admin-only routes are `GET /api/orders/all`, `PATCH /api/orders/status/{orderId}`, and `POST`, `PUT`, and `DELETE /api/foods`.
 
 ## Authentication Flow
 
@@ -193,7 +200,7 @@ Compose starts four containers: MongoDB 7, Redis 7, the Spring Boot API, and the
 
 The properties are in `foodiesapi/src/main/resources/application.properties`.
 
-- `app.stub.payment=true` makes `OrderServiceImpl` assign a synthetic `stub_order_...` ID and mark payment `PENDING`; verification then marks the matching order `PAID_STUB` and returns a stub-verification message. With it set to `false`, `OrderServiceImpl` calls the Razorpay Java client to create a payment order, and verification validates the Razorpay HMAC SHA256 signature, rejecting invalid signatures with HTTP 400.
+- `app.stub.payment=true` makes `OrderServiceImpl` assign a synthetic `stub_order_...` ID and mark payment `PENDING`; the frontend simulates payment success without calling `/verify`. With it set to `false`, `OrderServiceImpl` calls the Razorpay Java client to create a payment order, and `/verify` validates the Razorpay HMAC SHA256 signature, returning `verified: false` for an invalid signature.
 - `app.stub.storage=true` makes `FoodServiceImpl` return a synthetic `https://stub-bucket.local/...` image URL and treats file deletion as successful without accessing storage. With it set to `false`, `app.storage.type=local` (the current property value) writes uploads to `app.upload.dir` and serves their URL under `/uploads/`; a non-`local` storage type follows the S3 calls in `FoodServiceImpl`, using the `S3Client` configured by `AWSConfig`.
 
 These options select code paths; they do not provision credentials or make the deployed integrations durable. In particular, local uploads can be lost when an ephemeral deployment is replaced.
@@ -211,7 +218,7 @@ Examples below are placeholders, not credentials. Spring Boot maps environment o
 
 ## Testing
 
-There are 26 JUnit test methods across the backend test sources: 20 service-layer tests (10 `FoodServiceImplTest`, 7 `OrderServiceImplTest`, 3 `UserServiceImplTest`) and 6 controller-layer tests (`OrderControllerTest`). `UserServiceImplTest` includes a regression test that registration ignores a client-supplied role. No repository, authentication-controller, or frontend test classes are present in the test tree.
+There are 42 JUnit test methods across the backend test sources: 35 service-layer tests (10 `FoodServiceImplTest`, 22 `OrderServiceImplTest`, 3 `UserServiceImplTest`) and 7 controller-layer tests (`OrderControllerTest`). `UserServiceImplTest` includes a regression test that registration ignores a client-supplied role. No repository, authentication-controller, or frontend test classes are present in the test tree.
 
 Run the backend tests from the repository root:
 
