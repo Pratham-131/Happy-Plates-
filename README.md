@@ -246,10 +246,18 @@ Examples below are placeholders, not credentials. Spring Boot maps environment o
 
 | Name | Purpose | Example placeholder |
 | --- | --- | --- |
-| `JWT_SECRET` | Signing key required by `jwt.secret.key` | `<replace-with-a-long-random-secret>` |
+| `JWT_SECRET` | Signing key required by `jwt.secret.key`; must be Base64-encoded (decoded length at least 32 bytes) | `<base64-encoded-secret-at-least-32-bytes>` |
 | `REDIS_HOST` | Redis hostname; defaults to `localhost` | `localhost` |
 | `SPRING_DATA_MONGODB_URI` | MongoDB connection URI; Compose uses its MongoDB service | `mongodb://localhost:27017/foodiesdb` |
 | `VITE_API_URL` | API origin used by the frontend Axios services | `http://localhost:8081` |
+
+Generate a secret with `openssl rand -base64 32`, or in PowerShell:
+
+```powershell
+$b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)
+```
+
+A secret that is not valid Base64 (for example one containing hyphens) can cause a 500 error on login.
 
 ## Sample Requests
 
@@ -293,6 +301,7 @@ On Windows, use `.\mvnw.cmd test`. GitHub Actions also runs `mvn -B test` for th
 
 - Registration previously trusted a client-supplied role; it was fixed by forcing USER.
 - After moving pricing server-side, live checkout returned 400 because the frontend read `item.foodId` while food objects use `item.id`. This was fixed by sending `foodId: item.id`. Local tests missed it because they used a hand-made payload, showing the need for end-to-end checks.
+- Local startup returned 500 with a hyphenated JWT secret. JJWT Base64-decodes `jwt.secret.key`, so the secret must be valid Base64 and at least 32 bytes decoded.
 
 ## Design Decisions
 
