@@ -99,7 +99,7 @@ public OrderResponse createOrderWithPayment(OrderRequest request) {
 
     @Override
     public void updateOrderStatus(String orderId, String status) {
-        if (!ALLOWED_ORDER_STATUSES.contains(status)) {
+        if (status == null || !ALLOWED_ORDER_STATUSES.contains(status)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid order status");
         }
         OrderEntity entity = orderRepository.findById(orderId)

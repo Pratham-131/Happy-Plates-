@@ -8,13 +8,16 @@ import com.foodify.foodiesapi.io.OrderResponse;
 import com.foodify.foodiesapi.repository.CartRespository;
 import com.foodify.foodiesapi.repository.FoodRepository;
 import com.foodify.foodiesapi.repository.OrderRepository;
+import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -112,6 +115,116 @@ class OrderServiceImplTest {
     }
 
     @Test
+    void createOrderWithPayment_ignoresClientAmountAndItemDetails() {
+        mockFood();
+        orderRequest.setAmount(1.0);
+        OrderItem requestedItem = orderRequest.getOrderedItems().get(0);
+        requestedItem.setPrice(1.0);
+        requestedItem.setName("Untrusted name");
+        requestedItem.setCategory("Untrusted category");
+        requestedItem.setImageUrl("untrusted.jpg");
+        requestedItem.setDescription("Untrusted description");
+        when(userService.findByUserId()).thenReturn("user1");
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderResponse response = orderService.createOrderWithPayment(orderRequest);
+
+        ArgumentCaptor<OrderEntity> orderCaptor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(orderCaptor.capture());
+        OrderEntity savedOrder = orderCaptor.getValue();
+        assertThat(savedOrder.getAmount()).isEqualTo(230.0);
+        assertThat(savedOrder.getOrderedItems().get(0).getPrice()).isEqualTo(200.0);
+        assertThat(savedOrder.getOrderedItems().get(0).getName()).isEqualTo("Chicken Biryani");
+        assertThat(savedOrder.getOrderedItems().get(0).getCategory()).isEqualTo("Biryani");
+        assertThat(savedOrder.getOrderedItems().get(0).getImageUrl()).isEqualTo("img.jpg");
+        assertThat(savedOrder.getOrderedItems().get(0).getDescription()).isEqualTo("Tasty");
+        assertThat(response.getAmount()).isEqualTo(230.0);
+    }
+
+    @Test
+    void createOrderWithPayment_ignoresClientStatusAndAllowsDuplicateFoodLines() {
+        mockFood();
+        OrderItem secondItem = OrderItem.builder()
+                .foodId("food1")
+                .quantity(1)
+                .price(999.0)
+                .name("Untrusted name")
+                .build();
+        orderRequest.setOrderedItems(List.of(orderRequest.getOrderedItems().get(0), secondItem));
+        orderRequest.setAmount(1.0);
+        orderRequest.setOrderStatus("DELIVERED");
+        when(userService.findByUserId()).thenReturn("user1");
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        orderService.createOrderWithPayment(orderRequest);
+
+        ArgumentCaptor<OrderEntity> orderCaptor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(orderCaptor.capture());
+        OrderEntity savedOrder = orderCaptor.getValue();
+        assertThat(savedOrder.getAmount()).isEqualTo(340.0);
+        assertThat(savedOrder.getOrderStatus()).isEqualTo("Preparing");
+        assertThat(savedOrder.getOrderedItems()).hasSize(2);
+        assertThat(savedOrder.getOrderedItems()).extracting(OrderItem::getPrice)
+                .containsExactly(200.0, 100.0);
+    }
+
+    @Test
+    void createOrderWithPayment_unknownFoodId_throwsBadRequest() {
+        orderRequest.getOrderedItems().get(0).setFoodId("missing");
+        when(foodRepository.findById("missing")).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrderWithPayment(orderRequest));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void createOrderWithPayment_zeroQuantity_throwsBadRequest() {
+        orderRequest.getOrderedItems().get(0).setQuantity(0);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrderWithPayment(orderRequest));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void createOrderWithPayment_emptyOrderedItems_throwsBadRequest() {
+        orderRequest.setOrderedItems(List.of());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrderWithPayment(orderRequest));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void createOrderWithPayment_nullOrderedItems_throwsBadRequest() {
+        orderRequest.setOrderedItems(null);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrderWithPayment(orderRequest));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void createOrderWithPayment_nullFoodId_throwsBadRequest() {
+        orderRequest.getOrderedItems().get(0).setFoodId(null);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrderWithPayment(orderRequest));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
     void getOrdersOfAllUsers_returnsAllOrders() {
         when(orderRepository.findAll()).thenReturn(List.of(orderEntity));
 
@@ -156,11 +269,26 @@ class OrderServiceImplTest {
     }
 
     @Test
+    void updateOrderStatus_invalidStatus_throwsBadRequest() {
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.updateOrderStatus("order1", "DELIVERED"));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ResponseStatusException nullStatusException = assertThrows(ResponseStatusException.class,
+                () -> orderService.updateOrderStatus("order1", null));
+        assertThat(nullStatusException.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(orderRepository, never()).findById(anyString());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
     void updateOrderStatus_invalidOrderId_throwsException() {
         when(orderRepository.findById("bad_id")).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> orderService.updateOrderStatus("bad_id", "Delivered"));
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.updateOrderStatus("bad_id", "Delivered"));
 
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         verify(orderRepository, never()).save(any(OrderEntity.class));
     }
 
