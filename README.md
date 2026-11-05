@@ -4,7 +4,32 @@
 
 A full-stack food ordering application with a React (Vite) frontend and a Spring Boot REST API backed by MongoDB.
 
+**Table of Contents**
+
+- [What This Project Does](#what-this-project-does)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Frontend](#frontend)
+- [Database Schema](#database-schema)
+- [API Endpoints](#api-endpoints)
+- [Security](#security)
+- [Authentication Flow](#authentication-flow)
+- [Caching with Redis](#caching-with-redis)
+- [How to Run](#how-to-run)
+- [Feature Flags](#feature-flags)
+- [Environment Variables](#environment-variables)
+- [Sample Requests](#sample-requests)
+- [Testing](#testing)
+- [Current Status](#current-status)
+- [Challenges and Fixes](#challenges-and-fixes)
+- [Design Decisions](#design-decisions)
+- [Limitations](#limitations)
+- [Planned / In Progress](#planned--in-progress)
+- [License](#license)
+
 **Live:** [happy-plates.vercel.app](https://happy-plates.vercel.app) · **Backend API:** [happy-plates-backend.onrender.com](https://happy-plates-backend.onrender.com)
+
+The live demo runs with stub payment (`app.stub.payment=true`). Checkout simulates payment success without calling Razorpay, and stub orders stay PENDING.
 
 > The backend runs on Render's free tier and may take 30–60 seconds to wake up on the first request.
 
@@ -14,7 +39,7 @@ Users can register and log in, browse food items, manage a cart, and place order
 
 ## Tech Stack
 
-**Backend:** Java 17, Spring Boot, Spring Security, JWT, Maven, JUnit 5
+**Backend:** Java 17, Spring Boot 3, Spring Security, JWT, Maven, JUnit 5
 
 **Data and cache:** MongoDB documents; Redis-backed Spring Cache
 
@@ -44,6 +69,14 @@ flowchart LR
 - **API and security:** Spring Security applies the JWT filter before requests reach controllers; public and role-protected routes are configured centrally.
 - **Business and persistence:** Controllers delegate to services, which use MongoDB repositories; food reads also use Redis-backed Spring Cache.
 - **External integrations:** Payment verification uses a stub or validates the Razorpay signature, based on configuration; local uploads are not durable on ephemeral hosts.
+
+## Frontend
+
+- Pages provide food browsing and details, cart and checkout, order history, and admin food/order management.
+- `StoreContext` keeps the food list, cart quantities, JWT token, and user role in React state.
+- Login stores the JWT in `localStorage`; admin login stores both the JWT and role. `StoreContext` restores them on startup.
+- The `authService`, `foodService`, `cartService`, and `orderService` modules make API calls with Axios.
+- Protected service requests send the JWT in the `Authorization` header.
 
 ## Database Schema
 
@@ -129,14 +162,16 @@ All paths are relative to the API host. Protected endpoints accept any authentic
 
 ## Security
 
-- Order totals are calculated server-side from food records in the database.
-- Registration always assigns the USER role and ignores any client-supplied role.
-- Payment signatures are verified server-side in real Razorpay mode. In stub mode (`app.stub.payment=true`), payment is simulated and `/verify` is not called by the frontend.
-- Admin-only routes are `GET /api/orders/all`, `PATCH /api/orders/status/{orderId}`, and `POST`, `PUT`, and `DELETE /api/foods`.
+- **Server-side pricing:** order items are loaded from the database by `foodId`. Client-sent price, name and amount are ignored. Total = subtotal + Rs 10 shipping (when subtotal > 0) + 10% tax, computed with `BigDecimal`; in real payment mode it is sent to Razorpay in paise. Unknown food ID, quantity <= 0 or empty items return 400.
+- **Role injection fix:** registration always assigns USER and ignores a client-supplied `role`. Covered by a regression test.
+- **Admin-only routes:** `POST`, `PUT`, `DELETE /api/foods/**`, `GET /api/orders/all`, `PATCH /api/orders/status/**`.
+- **Order status:** new orders always start as `Preparing`. Updates accept only `Preparing`, `Out for delivery`, `Delivered`, `Cancelled` (400 otherwise, 404 if order missing).
+- **Payment verification:** `/api/orders/verify` checks order ownership (403 for another user's order) and validates the Razorpay HMAC SHA256 signature on `orderId|paymentId`. An invalid signature returns `verified: false`. In stub mode (`app.stub.payment=true`) payment is simulated and `/verify` is not called by the frontend.
+- **Passwords:** hashed with BCrypt.
 
 ## Authentication Flow
 
-Registration encodes the submitted password with BCrypt before saving the user. Registration always assigns the USER role and ignores any role sent by the client. Admin accounts are created separately. `/api/login` authenticates a non-admin account; `/api/admin/login` authenticates an admin account. Successful login creates an HS256 JWT with the email as subject and role as a claim; it expires after 10 hours. Clients send it as `Authorization: Bearer <token>`. `JwtAuthenticationFilter` extracts the email, reloads the user, and validates the token before establishing the Spring Security context. Food reads and account login/register are public, food mutations and admin-order routes require `ADMIN`, and other protected routes require authentication.
+Registration encodes the submitted password with BCrypt before saving the user. Registration always assigns the USER role and ignores any role sent by the client. There is no admin registration endpoint. Admin accounts are created by inserting a user document with role `ADMIN` directly in the database (password stored as a BCrypt hash). `/api/login` authenticates a non-admin account; `/api/admin/login` authenticates an admin account. Successful login creates an HS256 JWT with the email as subject and role as a claim; it expires after 10 hours. Clients send it as `Authorization: Bearer <token>`. `JwtAuthenticationFilter` extracts the email, reloads the user, and validates the token before establishing the Spring Security context. Food reads and account login/register are public, food mutations and admin-order routes require `ADMIN`, and other protected routes require authentication.
 
 ```mermaid
 sequenceDiagram
@@ -190,17 +225,13 @@ Vite serves the app at `http://localhost:5173`. Set `VITE_API_URL` to the backen
 
 ### Docker
 
-```bash
-docker-compose up --build
-```
-
-Compose starts four containers: MongoDB 7, Redis 7, the Spring Boot API, and the frontend served by Nginx. In this Compose setup the database is the local MongoDB container at `mongo:27017/foodiesdb`, not Atlas; it persists in the `mongo-data` volume. Redis is the local `redis` container. The API is exposed on port 8081 and the frontend on port 3000. Compose passes `JWT_SECRET` to the API; provide a non-empty signing secret for JWT use. The deployed backend's MongoDB Atlas configuration is separate from this local Compose setup.
+Compose runs MongoDB 7, Redis 7, the API on port 8081, and an Nginx frontend on port 3000. MongoDB is available at `mongo:27017/foodiesdb` and persists in the `mongo-data` volume. `JWT_SECRET` is required.
 
 ## Feature Flags
 
 The properties are in `foodiesapi/src/main/resources/application.properties`.
 
-- `app.stub.payment=true` makes `OrderServiceImpl` assign a synthetic `stub_order_...` ID and mark payment `PENDING`; the frontend simulates payment success without calling `/verify`. With it set to `false`, `OrderServiceImpl` calls the Razorpay Java client to create a payment order, and `/verify` validates the Razorpay HMAC SHA256 signature, returning `verified: false` for an invalid signature.
+- `app.stub.payment=true` makes `OrderServiceImpl` assign a synthetic `stub_order_...` ID and mark payment `PENDING`; the frontend simulates payment success without calling `/verify`. If `/verify` is called in stub mode, the matching order is marked `PAID_STUB`. With the flag set to `false`, `OrderServiceImpl` calls the Razorpay Java client to create a payment order, and `/verify` validates the Razorpay HMAC SHA256 signature, returning `verified: false` for an invalid signature.
 - `app.stub.storage=true` makes `FoodServiceImpl` return a synthetic `https://stub-bucket.local/...` image URL and treats file deletion as successful without accessing storage. With it set to `false`, `app.storage.type=local` (the current property value) writes uploads to `app.upload.dir` and serves their URL under `/uploads/`; a non-`local` storage type follows the S3 calls in `FoodServiceImpl`, using the `S3Client` configured by `AWSConfig`.
 
 These options select code paths; they do not provision credentials or make the deployed integrations durable. In particular, local uploads can be lost when an ephemeral deployment is replaced.
@@ -215,6 +246,23 @@ Examples below are placeholders, not credentials. Spring Boot maps environment o
 | `REDIS_HOST` | Redis hostname; defaults to `localhost` | `localhost` |
 | `SPRING_DATA_MONGODB_URI` | MongoDB connection URI; Compose uses its MongoDB service | `mongodb://localhost:27017/foodiesdb` |
 | `VITE_API_URL` | API origin used by the frontend Axios services | `http://localhost:8081` |
+
+## Sample Requests
+
+Replace `<token>` with the JWT returned by login and `<food-id>` with an ID returned by `GET /api/foods`. The login request fields are `email` and `password`. An order request uses `userAddress`, `phoneNumber`, `email`, and `orderedItems`; each item needs `foodId` and a positive `quantity`.
+
+```bash
+curl -X POST https://happy-plates-backend.onrender.com/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"your-password"}'
+
+curl https://happy-plates-backend.onrender.com/api/foods
+
+curl -X POST https://happy-plates-backend.onrender.com/api/orders/create \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"userAddress":"123 Main St, City","phoneNumber":"5551234567","email":"user@example.com","orderedItems":[{"foodId":"<food-id>","quantity":2}]}'
+```
 
 ## Testing
 
@@ -234,8 +282,13 @@ On Windows, use `.\mvnw.cmd test`. GitHub Actions also runs `mvn -B test` for th
 - The code includes account registration/login, public food browsing, cart operations, order creation/listing, and admin food/order operations.
 - CI builds the backend and runs its tests, then installs frontend dependencies and builds the Vite app.
 - The README's live links point to the Vercel frontend and Render backend; the backend may have a free-tier cold start.
-- Razorpay order creation is configurable; stub verification marks orders `PAID_STUB`, while live mode validates the payment signature. Webhook processing is not implemented. Storage defaults to local disk rather than durable cloud storage.
+- Stub-mode orders stay `PENDING` in the live frontend flow; live payment mode validates the payment signature. Webhook processing is not implemented. Storage defaults to local disk rather than durable cloud storage.
 - Docker Compose is a local stack with MongoDB and Redis containers; the deployed backend uses MongoDB Atlas and a Render Valkey (Redis-compatible) instance for caching, configured separately from Compose.
+
+## Challenges and Fixes
+
+- Registration previously trusted a client-supplied role; it was fixed by forcing USER.
+- After moving pricing server-side, live checkout returned 400 because the frontend read `item.foodId` while food objects use `item.id`. This was fixed by sending `foodId: item.id`. Local tests missed it because they used a hand-made payload, showing the need for end-to-end checks.
 
 ## Design Decisions
 
@@ -246,7 +299,7 @@ On Windows, use `.\mvnw.cmd test`. GitHub Actions also runs `mvn -B test` for th
 
 ## Limitations
 
-- With `app.stub.payment=true`, `/api/orders/verify` marks the matching order `PAID_STUB` and identifies the response as stub verification. With the flag disabled, the API validates the Razorpay HMAC SHA256 signature and rejects invalid signatures with HTTP 400; webhook processing is not implemented.
+- Stub-mode order creation leaves `paymentStatus` as `PENDING`; the frontend simulates checkout success without calling `/verify`. If `/verify` is called in stub mode, the order is marked `PAID_STUB`. In real mode an invalid signature returns `verified: false`, while missing or blank verification fields return HTTP 400. Webhook processing is not implemented.
 - The configured storage type is local disk. The AWS S3 code path exists, but the repository does not provide deployable credentials; local uploads on ephemeral hosts do not persist across redeploys.
 - The local Docker Compose database is MongoDB, not MongoDB Atlas. Atlas is used only when the deployed environment is configured with an Atlas connection URI.
 - The backend test suite covers food, order, and registration services plus the order controller. Authentication-controller, repository-integration, and frontend behavior have no tests in the checked-in test tree.
