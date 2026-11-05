@@ -19,6 +19,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -290,6 +294,97 @@ class OrderServiceImplTest {
 
         assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void verifyPayment_wrongOwner_throwsForbidden() {
+        when(orderRepository.findByRazorpayOrderId("stub_order_123")).thenReturn(Optional.of(orderEntity));
+        when(userService.findByUserId()).thenReturn("another-user");
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.verifyPayment("stub_order_123", "pay_123", "signature"));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void verifyPayment_unknownOrder_throwsNotFound() {
+        when(orderRepository.findByRazorpayOrderId("missing")).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.verifyPayment("missing", "pay_123", "signature"));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void verifyPayment_stubMode_savesPaidStubStatus() {
+        when(orderRepository.findByRazorpayOrderId("stub_order_123")).thenReturn(Optional.of(orderEntity));
+        when(userService.findByUserId()).thenReturn("user1");
+
+        boolean verified = orderService.verifyPayment("stub_order_123", "pay_123", "signature");
+
+        ArgumentCaptor<OrderEntity> orderCaptor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(orderCaptor.capture());
+        assertThat(verified).isTrue();
+        assertThat(orderCaptor.getValue().getPaymentStatus()).isEqualTo("PAID_STUB");
+    }
+
+    @Test
+    void verifyPayment_alreadyPaid_returnsTrueWithoutSaving() {
+        orderEntity.setPaymentStatus("PAID");
+        when(orderRepository.findByRazorpayOrderId("stub_order_123")).thenReturn(Optional.of(orderEntity));
+        when(userService.findByUserId()).thenReturn("user1");
+
+        boolean verified = orderService.verifyPayment("stub_order_123", "pay_123", "signature");
+
+        assertThat(verified).isTrue();
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void verifyPayment_missingKey_throwsBadRequest() {
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.verifyPayment("stub_order_123", " ", "signature"));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(orderRepository, never()).findByRazorpayOrderId(anyString());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void verifyPayment_realMode_validSignature_savesPaidStatus() throws Exception {
+        ReflectionTestUtils.setField(orderService, "stubPayment", false);
+        when(orderRepository.findByRazorpayOrderId("stub_order_123")).thenReturn(Optional.of(orderEntity));
+        when(userService.findByUserId()).thenReturn("user1");
+        String signature = hmacSha256Hex("stub_order_123|pay_123", "test_secret");
+
+        boolean verified = orderService.verifyPayment("stub_order_123", "pay_123", signature);
+
+        ArgumentCaptor<OrderEntity> orderCaptor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(orderCaptor.capture());
+        assertThat(verified).isTrue();
+        assertThat(orderCaptor.getValue().getPaymentStatus()).isEqualTo("PAID");
+    }
+
+    @Test
+    void verifyPayment_realMode_badSignature_returnsFalseWithoutSaving() {
+        ReflectionTestUtils.setField(orderService, "stubPayment", false);
+        when(orderRepository.findByRazorpayOrderId("stub_order_123")).thenReturn(Optional.of(orderEntity));
+        when(userService.findByUserId()).thenReturn("user1");
+
+        boolean verified = orderService.verifyPayment("stub_order_123", "pay_123", "invalid-signature");
+
+        assertThat(verified).isFalse();
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    private String hmacSha256Hex(String payload, String secret) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        return HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
     }
 
     private void mockFood() {

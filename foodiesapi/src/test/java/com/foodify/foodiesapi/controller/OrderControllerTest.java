@@ -103,6 +103,16 @@ class OrderControllerTest {
     }
 
     @Test
+    void verifyPayment_missingKey_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/orders/verify")
+                        .contentType("application/json")
+                        .content("{\"razorpay_order_id\":\"stub_order_123\",\"razorpay_payment_id\":\"pay_123\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
     void getUserOrders_returnsListOfOrders() throws Exception {
         when(orderService.getUserOrders()).thenReturn(List.of(orderResponse));
 

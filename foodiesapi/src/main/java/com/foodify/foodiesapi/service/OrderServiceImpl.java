@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -117,7 +118,7 @@ public OrderResponse createOrderWithPayment(OrderRequest request) {
 
         OrderEntity entity = orderRepository.findByRazorpayOrderId(razorpayOrderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (!entity.getUserId().equals(userService.findByUserId())) {
+        if (!Objects.equals(entity.getUserId(), userService.findByUserId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Order does not belong to the current user");
         }
         if ("PAID".equals(entity.getPaymentStatus()) || "PAID_STUB".equals(entity.getPaymentStatus())) {
