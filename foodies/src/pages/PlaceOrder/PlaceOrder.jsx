@@ -81,7 +81,7 @@ const navigate = useNavigate();
      const initiateRazorpayPayment = (order) => {
         const options = {
           key: RAZORPAY_KEY,
-          amount: order.amount, //Convert to paise
+          amount: Math.round(order.amount * 100),
           currency: "INR",
           name: "Food Land",
           description: "Food order payment",
