@@ -1,10 +1,12 @@
 package com.foodify.foodiesapi.service;
 
 import com.foodify.foodiesapi.entity.OrderEntity;
+import com.foodify.foodiesapi.entity.FoodEntity;
 import com.foodify.foodiesapi.io.OrderItem;
 import com.foodify.foodiesapi.io.OrderRequest;
 import com.foodify.foodiesapi.io.OrderResponse;
 import com.foodify.foodiesapi.repository.CartRespository;
+import com.foodify.foodiesapi.repository.FoodRepository;
 import com.foodify.foodiesapi.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,9 @@ class OrderServiceImplTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Mock
+    private FoodRepository foodRepository;
 
     @Mock
     private UserService userService;
@@ -82,6 +87,7 @@ class OrderServiceImplTest {
 
     @Test
     void createOrderWithPayment_stubMode_savesOrderWithStubId() {
+        mockFood();
         when(userService.findByUserId()).thenReturn("user1");
         when(orderRepository.save(any(OrderEntity.class))).thenReturn(orderEntity);
 
@@ -96,6 +102,7 @@ class OrderServiceImplTest {
 
     @Test
     void createOrderWithPayment_stampsUserIdFromLoggedInUser() {
+        mockFood();
         when(userService.findByUserId()).thenReturn("user1");
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -155,5 +162,16 @@ class OrderServiceImplTest {
         assertThrows(RuntimeException.class, () -> orderService.updateOrderStatus("bad_id", "Delivered"));
 
         verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    private void mockFood() {
+        when(foodRepository.findById("food1")).thenReturn(Optional.of(FoodEntity.builder()
+                .id("food1")
+                .name("Chicken Biryani")
+                .description("Tasty")
+                .category("Biryani")
+                .imageUrl("img.jpg")
+                .price(100.0)
+                .build()));
     }
 }
