@@ -26,10 +26,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class OrderServiceImpl implements OrderService{
+
+    private static final Set<String> ALLOWED_ORDER_STATUSES =
+            Set.of("Preparing", "Out for delivery", "Delivered", "Cancelled");
 
     @Autowired
     private OrderRepository orderRepository;
@@ -95,8 +99,11 @@ public OrderResponse createOrderWithPayment(OrderRequest request) {
 
     @Override
     public void updateOrderStatus(String orderId, String status) {
+        if (!ALLOWED_ORDER_STATUSES.contains(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid order status");
+        }
         OrderEntity entity = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         entity.setOrderStatus(status);
         orderRepository.save(entity);
     }
