@@ -225,6 +225,10 @@ Vite serves the app at `http://localhost:5173`. Set `VITE_API_URL` to the backen
 
 ### Docker
 
+```bash
+docker-compose up --build
+```
+
 Compose runs MongoDB 7, Redis 7, the API on port 8081, and an Nginx frontend on port 3000. MongoDB is available at `mongo:27017/foodiesdb` and persists in the `mongo-data` volume. `JWT_SECRET` is required.
 
 ## Feature Flags
