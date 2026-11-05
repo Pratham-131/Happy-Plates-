@@ -91,11 +91,15 @@ class OrderControllerTest {
 
     @Test
     void verifyPayment_returnsVerifiedTrue() throws Exception {
+        when(orderService.verifyPayment("stub_order_123", "pay_123", "signature")).thenReturn(true);
+
         mockMvc.perform(post("/api/orders/verify")
                         .contentType("application/json")
-                        .content("{\"razorpay_order_id\":\"stub_order_123\",\"razorpay_payment_id\":\"pay_123\"}"))
+                        .content("{\"razorpay_order_id\":\"stub_order_123\",\"razorpay_payment_id\":\"pay_123\",\"razorpay_signature\":\"signature\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.verified").value(true));
+
+        verify(orderService).verifyPayment("stub_order_123", "pay_123", "signature");
     }
 
     @Test

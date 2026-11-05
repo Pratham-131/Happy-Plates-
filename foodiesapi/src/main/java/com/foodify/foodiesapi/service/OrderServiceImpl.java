@@ -4,6 +4,7 @@ package com.foodify.foodiesapi.service;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import com.razorpay.Order;
+import com.razorpay.Utils;
 
 import com.foodify.foodiesapi.entity.FoodEntity;
 import com.foodify.foodiesapi.entity.OrderEntity;
@@ -106,6 +107,44 @@ public OrderResponse createOrderWithPayment(OrderRequest request) {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         entity.setOrderStatus(status);
         orderRepository.save(entity);
+    }
+
+    @Override
+    public boolean verifyPayment(String razorpayOrderId, String razorpayPaymentId, String razorpaySignature) {
+        if (isBlank(razorpayOrderId) || isBlank(razorpayPaymentId) || isBlank(razorpaySignature)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Required payment fields are missing");
+        }
+
+        OrderEntity entity = orderRepository.findByRazorpayOrderId(razorpayOrderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        if (!entity.getUserId().equals(userService.findByUserId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Order does not belong to the current user");
+        }
+        if ("PAID".equals(entity.getPaymentStatus()) || "PAID_STUB".equals(entity.getPaymentStatus())) {
+            return true;
+        }
+        if (stubPayment) {
+            entity.setPaymentStatus("PAID_STUB");
+            orderRepository.save(entity);
+            return true;
+        }
+
+        try {
+            String payload = razorpayOrderId + "|" + razorpayPaymentId;
+            if (!Utils.verifySignature(payload, razorpaySignature, razorpayKeySecret)) {
+                return false;
+            }
+        } catch (RazorpayException e) {
+            return false;
+        }
+
+        entity.setPaymentStatus("PAID");
+        orderRepository.save(entity);
+        return true;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private OrderResponse convertToResponse(OrderEntity newOrder) {

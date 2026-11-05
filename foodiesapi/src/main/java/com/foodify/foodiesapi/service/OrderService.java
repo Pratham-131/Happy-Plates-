@@ -4,7 +4,6 @@ import com.foodify.foodiesapi.io.OrderRequest;
 import com.foodify.foodiesapi.io.OrderResponse;
 
 import java.util.List;
-import java.util.Map;
 
 public interface OrderService {
 
@@ -15,5 +14,7 @@ public interface OrderService {
     List<OrderResponse> getUserOrders();
 
     void updateOrderStatus(String orderId, String status);
+
+    boolean verifyPayment(String razorpayOrderId, String razorpayPaymentId, String razorpaySignature);
 
 }
