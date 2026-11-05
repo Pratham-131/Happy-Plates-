@@ -35,7 +35,7 @@ export const verifyPayment = async (paymentData, token) => {
             paymentData,
             { headers: { Authorization: `Bearer ${token}` } }
         );
-        return response.status === 200;
+        return response.data.verified === true;
     } catch (error) {
         console.error('Error occured while verifing the payment', error);
         throw error;
