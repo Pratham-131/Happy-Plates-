@@ -48,7 +48,7 @@ const navigate = useNavigate();
         phoneNumber: data.phoneNumber,
         email: data.email,
         orderedItems: cartItems.map((item) => ({
-          foodId: item.foodId,
+          foodId: item.id,
           quantity: quantities[item.id],
           price: item.price * quantities[item.id],
           category: item.category,
